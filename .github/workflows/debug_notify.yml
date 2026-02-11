@@ -1,31 +1,42 @@
-name: Test Notification Only
+name: Direct PushPlus Test
 
-# 设置为手动触发
 on:
   workflow_dispatch:
 
 jobs:
-  test_push:
+  check_pushplus:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-
-      - name: Run Test Method A
+      - name: Pure Python Push Test
         env:
-          # 将刚才配置的 Secrets 映射给脚本使用
           PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
-          PUSHPLUS_TOPIC: ${{ secrets.PUSHPLUS_TOPIC }}
-          # 添加下面这一行，随便填个字符串，只要不是空的就行
-          WECHAT_WEBHOOK_URL: "ignore_this"
+        shell: python
         run: |
-          python test_env.py --notify
+          import requests
+          import os
+          import sys
+
+          token = os.environ.get('PUSHPLUS_TOKEN')
+          if not token:
+              print("错误：未在 GitHub Secrets 中找到 PUSHPLUS_TOKEN")
+              sys.exit(1)
+
+          url = 'http://www.pushplus.plus/send'
+          data = {
+              "token": token,
+              "title": "GitHub Actions 测试消息",
+              "content": "如果你收到这条消息，说明你的 Token 配置完全正确！",
+              "template": "html"
+          }
+          
+          print(f"正在向 PushPlus 发送请求...")
+          response = requests.post(url, json=data)
+          res_json = response.json()
+          
+          if res_json.get('code') == 200:
+              print("✅ 发送成功！请检查手机微信。")
+          else:
+              print(f"❌ 发送失败！")
+              print(f"返回代码: {res_json.get('code')}")
+              print(f"错误消息: {res_json.get('msg')}")
+              sys.exit(1)
